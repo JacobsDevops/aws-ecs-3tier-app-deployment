@@ -1,0 +1,13 @@
+{
+    "name": "todo-web",
+    "version": "1.0.0",
+    "description": "Static login-page for TodoApp",
+    "main": "server.js",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "dependencies": {
+      "express": "^4.17.1"
+    }
+  }
+  

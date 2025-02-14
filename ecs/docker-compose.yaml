@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  database:
+    image: postgres
+    container_name: todoappdb
+    environment:
+      POSTGRES_USER: todo_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: tododb
+    networks:
+      - todo-network
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: 594515826734.dkr.ecr.us-east-1.amazonaws.com/todo_app:backend-845
+    container_name: backend-container
+    depends_on:
+      - database
+    environment:
+      DB_USER: todo_user
+      DB_PASSWORD: secure_password
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: tododb
+      SERVER_PORT: 5000
+    networks:
+      - todo-network
+    ports:
+      - "5000:5000"
+
+  frontend:
+    image: 594515826734.dkr.ecr.us-east-1.amazonaws.com/todo_app:frontend-1541
+    container_name: frontend-container
+    depends_on:
+      - backend
+    environment:
+      REACT_APP_BASE_URL: "http://localhost:5000/"
+    networks:
+      - todo-network
+    ports:
+      - "3000:3000"
+
+networks:
+  todo-network:
