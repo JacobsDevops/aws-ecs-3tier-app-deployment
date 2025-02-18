@@ -1,0 +1,73 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches:
+      - main  
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY_BACKEND: ${{ secrets.ECR_REPOSITORY_BACKEND }}
+  ECR_REPOSITORY_FRONTEND: ${{ secrets.ECR_REPOSITORY_FRONTEND }}
+  ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+  ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+  ECS_TASK_FAMILY: ${{ secrets.ECS_TASK_FAMILY }}
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy to AWS ECS
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout code
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    # Set up AWS CLI
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    # Login to AWS ECR
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+    # Build and Push Backend Image
+    - name: Build and Push Backend Image
+      run: |
+        docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_BACKEND:latest backend/
+        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_BACKEND:latest
+
+    # Build and Push Frontend Image
+    - name: Build and Push Frontend Image
+      run: |
+        docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_FRONTEND:latest frontend/
+        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY_FRONTEND:latest
+
+    # Terraform Init & Apply
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Init
+      run: terraform init
+      working-directory: ./ecs
+
+    - name: Terraform Plan
+      run: terraform plan
+      working-directory: ./ecs
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+      working-directory: ./ecs
+
+    # Deploy New ECS Task Definition
+    - name: Register New Task Definition
+      run: |
+        aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment
+
+  
